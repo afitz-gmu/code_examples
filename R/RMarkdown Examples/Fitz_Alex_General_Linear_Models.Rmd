@@ -1,0 +1,382 @@
+---
+title: 'Linear Discriminant Analysis, Redundancy Analysis'
+author: "Alex Fitz"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_depth: 3
+  word_document: default
+---
+
+```{r, warning = FALSE, message=FALSE}
+if (!require(MASS))
+  {install.packages("MASS")}
+  library(MASS)
+
+if (!require(ggplot2))
+  {install.packages("ggplot2")}
+  library(ggplot2)
+
+if (!require(vegan))
+  {install.packages("vegan")}
+  library(vegan)
+```
+
+
+\newpage
+## Section 1: Measures of Association
+
+You were just hired as a new faculty member in the Biology Department at College of William & Mary and must involve undergraduate students in your research. But there is a problem – you study 4 species of plants that are hard to tell apart and you are too busy writing lectures for your new class to really teach the new research students how to identify the plant species. You decide to let statistics teach your research students for you. You will use a Linear Discriminant Analysis to decide which traits are best used to identify the 4 plant species.
+
+### Question 1
+**Question: **Load the data set “taxon.txt” (using read.table) and assign that to a variable called taxa. This data set has measurements of seven variables on 120 individual plants. As always, for each step, please have your R script show the content of variables and calculations as they are created. E.g. here, please show the content of taxa (you can use head(taxa) for this).
+
+```{r}
+#Here you could just change the "" to your working directory and everything should run smoothly
+dir <- "~/Documents/GitHub/code_examples/R/RMarkdown Examples"
+taxa <- read.table(paste(dir,"/taxon.txt",sep=""), header = T)
+head(taxa) #look at data
+``` 
+
+***
+
+### Question 2
+**Question: **You would like to know which of the variables (fruit size, bract length, internode length, petal width, sepal length, petiole length, or leaf width) are the most useful to distinguish among the 4 plant species. The plants in rows 1-30 are Species I, the plants in rows 31-60 are Species II, the plants in rows 61-90 are species III, and the plants in rows 91-120 are species IV. Create a vector called name, which should be of length 120, that contains these taxonomic labels (“I”, “II”, “III”, “IV”) for each of the rows of the variable taxa. The command rep might be useful here. Like above, make sure that your R script includes a command to show the content of name. Please do this for the remainder of the script (like I asked you to do in HW #1 and HW #2).
+
+```{r}
+taxa$name<- rep(c("I", "II", "III", "IV"), each=30) #create a vector called name 
+table(taxa$name) #ensure names are correct
+head(taxa)
+```
+
+***
+
+### Question 3
+We’ll conduct a PCA to see if any obvious trait candidates appear.
+
+* Part A: Conduct a PCA (on standardized data, using prcomp) and save the result to a variable called pc_taxa. Recall that you can either standardize your data (which means set all variables to have mean 0, standard deviation 1) yourself using scale or you can set options in prcomp to do that for you. Use summary(pc_taxa) to show the contents of the PCA.
+* Part B: Create a PCA biplot (using biplot) to visualize the loadings of the trait variables with the PC axes.
+* Part C: Draw a scatterplot of the species scores (the rows of pc_taxa$x) for the first two PC axes. In this scatterplot, label the species scores with their value in name and color the label using this color scheme: Species I red, Species II blue, Species III black, and Species IV gray. To do this you have three options.
+    + i: Draw the scatterplot by hand yourself. Some hints: you can make use of plot with the option type="n" to initialize a blank plot then add point labels using text. Please make the text labels large (using the option cex=2) and use a Serif font (using the option family="serif").
+* Part D: Can you name a trait that seems like a good candidate to distinguish Species I from the other species? Can you name a trait that seems like a good candidate to distinguish Species III from the other species?
+
+##### Part A  
+```{r}
+pc_taxa<- prcomp(taxa[,1:7], scale. = T) #perform pca with standardization
+summary(pc_taxa) #summary of PCA
+```
+
+##### Part B    
+```{r}
+biplot(pc_taxa)
+```
+
+##### Part C  
+```{r}
+df<- as.data.frame(pc_taxa$x)
+df$Species<- factor(taxa$name)
+ggplot(df, aes(PC1, PC2, color=Species))+ ggtitle("PC1 vs PC2")+
+  geom_point(size=1.5)+scale_color_manual(values = c("red","blue", "black",  "gray")) +theme_minimal()
+
+plot(df$PC1, df$PC2, type = "n", xlab = "PC1", ylab = "PC2") #Empty plot
+text(df$PC1[1:30], df$PC2[1:30], cex=2, "I", family="serif", col="red") #add labels
+text(df$PC1[31:60], df$PC2[31:60], cex=2, "II", family="serif", col="blue") #add labels
+text(df$PC1[61:90], df$PC2[61:90], cex=2, "III", family="serif", col="black") #add labels
+text(df$PC1[91:120], df$PC2[91:120], cex=2, "IV", family="serif", col="gray") #add labels
+```
+
+##### Part D  
+```{r}
+#Petiole can be used to distinguish species I from others
+ggplot(df, aes(taxa$Petiole, PC1, color=Species))+ ggtitle("PC1 vs Petiole")+
+  geom_point(size=1.5)+scale_color_manual(values = c("red","blue", "black",  "gray")) +theme_minimal()
+```
+
+**Species I:** Petiole is the best trait which can be used to differentiate Species I from the others. This is due to Petiole having a high PC 1 value, which we can observe on the biplot. We see the Species 1 also has high PC1 values in the plots made during Part C.
+
+***
+
+```{r}
+#Leaf can be used to distinguish species III from others
+ggplot(df, aes(taxa$Leaf, PC2, color=Species))+ ggtitle("PC1 vs Leaf")+
+  geom_point(size=1.5)+scale_color_manual(values = c("red","blue", "black",  "gray")) +theme_minimal()
+```
+
+**Species III:** Lead is the best trait which can be used to differentiate Species III from the others. This is due to Petiole having a low PC 2 value, which we can observe on the biplot. We see the Species III also has low PC2 values in the plots made during Part C.
+
+***
+
+### Question 4
+We’ll conduct a Linear Discriminant Analysis (LDA) to ordinate the data in a reduced dimensional space that maximizes the among-group variance in plant species and carefully identify the traits that are the best candidates to discriminate among all 4 species.
+
+* Part A: Install package MASS (using install.packages) and then load the MASS library (using library). Use Linear Discriminant Analysis (using command lda) on the original data in taxa (e.g. don’t standardize) and save the result to a variable called lda_taxa.
+* Part B: Use plot on lda_taxa (the plot command sees that lda_taxa is an lda object and automatically calls plot.lda) to produce scatterplots of the species scores for LD1, LD2, and LD3 (these scatterplots are the default when there are >2 LD axes produced in the analysis).
+* Part C: Use the following commands to create a histogram and density plot of all how all groups (Species) align along the first LDA: dev.new(), plot(lda_taxa,dimen=1,type="both")
+
+
+##### Part A
+```{r}
+#Mass installed at beginning of script
+lda_taxa<- lda(name~., data=taxa) #LDA model
+summary(lda_taxa)
+```
+
+##### Part B
+```{r}
+plot(lda_taxa) #plot linear discriminant analysis
+```
+
+The above LDA plots show that LD1 is a good indicator for the separation between Species 4.
+
+##### Part C
+
+
+```{r, fig.height=10}
+plot(lda_taxa,dimen=1,type="both")
+```
+
+***
+
+### Question 5
+These default plots are helpful, but they don’t give me the freedom to see the information I want. For plot 4c, I can see easily that LD1 is a great candidate to distinguish Species IV, but I can’t coerce the plot.lda command to give me this plot for any of the other LDAs. We’re going to draw our own histogram + density plots for each LDA. For this you can use an external package like ggplot or lattice, but it must produce a plot with the elements I ask for here. Here is an example of what the final plot should look like (using the Egyptian skulls data set).
+
+#### Part A-I
+
+* Part A: Extract the site scores from lda_taxa using predict and assign those to a new variable called pred.
+* Part B: Extract the site scores for LDA1 from pred (these are in pred$x) and assign them to a new variable called x1.
+* Part C: Use kernel density estimation to construct density estimates for x1 using the command density and assign these values to a new variable called d1. Use all the default options for density.
+* Part D: Make a histogram of the FREQUENCY of x1 (using the base R function hist) with 20 bins (assigned using breaks).
+* Part E: Use lines to add d1 to the histogram. You can see that d1 is a list and has elements d1$x and d1$y. So simply typing lines(d1) should be enough to add the density lines.
+* Part F: Use polygon to add d1 to the histogram and modify the color of the polygon to be red with alpha transparency level of 75 (out of max RGB values of 255). For example, simply typing polygon(d1,col="red") works, but we need to modify the transparency of the polygon. You can use rgb to help with modifying color values precisely.
+* Part G: Use segments to add small lines indicating where individual plants lie along LDA1. Segments will require you to enter the starting x-position of the line segment (which will be x1), the starting y-position of the segment (make this 0), the ending x-position (which will again be x1), and the ending y-position (make this 0.01).
+* Part H: Identify where in the object lda_taxa you can find the loadings of the original traits with each LDA. Extract the values for LD1 and assign them to a new variable called load_ld1.
+* Part I: Now just run this command to add a text label showing where each of the original traits scales with LD1:
+* Part J: You can see the command in g sets all the lines to black. Now I want you to use segments to color all the lines for Species 1 as red, all the lines for Species 2 as blue, all the lines for Species 3 as black, and all the lines for Species 4 as grey.
+* Part K: Repeat to make the figure for LDA2.
+* Part L: Repeat to make the figure for LDA3.
+
+
+##### Part A-I Code
+```{r}
+#Part A
+pred<- predict(lda_taxa) #scores saved to this variable
+
+#Part B
+x1<- pred$x[,1]
+
+#Part C
+d1<- density(x1)
+
+#Part D
+hist(x1, breaks = 20, freq = F, main = "Histogram of LDA 1", xlab = "LDA 1") #make frequency histogram with proportion instead of count
+
+#Part E
+lines(d1) #add density
+
+#Part F
+mycol <- rgb(255, 0, 0, max = 255, alpha = 75) #Set transparency and save this to a new color
+polygon(d1,col=mycol) #add the density color
+
+#Part G
+segments(x0=x1,y0=0, x1=x1, y1=0.01)
+
+#Part H
+load_ld1<- lda_taxa$scaling[,1] #it is saved as (scaling) data frame
+
+#Part I
+text(load_ld1,rep(.005,length(load_ld1)),labels=names(load_ld1),srt=45,adj=c(0,.5)) #sepal provide best separation for species IV
+```
+
+**Question: **Please explain to me what the srt does and what the adj does.  
+
+* srt: Provides the string rotation in degrees which is 45 here  
+* adj: Provides the justification for the text with 0.5 as centered text
+
+##### Part J
+```{r}
+{hist(x1, breaks = 20, freq = F, main = "Histogram of LDA 1", xlab = "LDA 1") #make frequency histogram with proportion instead of count
+lines(d1) #add density
+mycol <- rgb(255, 0, 0, max = 255, alpha = 75) #Set transparency and save this to a new color
+polygon(d1,col=mycol) #add the density color
+segments(x0=x1[1:30],y0=0, x1=x1[1:30], y1=0.01, col="red")
+segments(x0=x1[31:60],y0=0, x1=x1[31:60], y1=0.01, col="blue")
+segments(x0=x1[61:90],y0=0, x1=x1[61:90], y1=0.01, col="black")
+segments(x0=x1[91:120],y0=0, x1=x1[91:120], y1=0.01, col="grey")
+load_ld1<- lda_taxa$scaling[,1]
+text(load_ld1,rep(.005,length(load_ld1)),labels=names(load_ld1),srt=45,adj=c(0,.5)) 
+legend("topright", legend =c("Species I", "Species II", "Species III", "Species IV"), col = c("red", "blue", "black", "gray"), lty=c(1,1))}
+```
+
+Using the segments command, it was possible to create different colors for the different species and plot that on the histogram. 
+
+##### Part K
+```{r}
+{x1<- pred$x[,2]
+d1<- density(x1)
+hist(x1, breaks = 20, freq = F, main = "Histogram of LDA 2", xlab = "LDA 2") #make frequency histogram with proportion instead of count
+lines(d1) #add density
+mycol <- rgb(255, 0, 0, max = 255, alpha = 75) #Set transparency and save this to a new color
+polygon(d1,col=mycol) #add the density color
+segments(x0=x1[1:30],y0=0, x1=x1[1:30], y1=0.01, col="red")
+segments(x0=x1[31:60],y0=0, x1=x1[31:60], y1=0.01, col="blue")
+segments(x0=x1[61:90],y0=0, x1=x1[61:90], y1=0.01, col="black")
+segments(x0=x1[91:120],y0=0, x1=x1[91:120], y1=0.01, col="grey")
+load_ld1<- lda_taxa$scaling[,2]
+text(load_ld1,rep(.005,length(load_ld1)),labels=names(load_ld1),srt=45,adj=c(0,.5))
+legend("topright", legend =c("Species I", "Species II", "Species III", "Species IV"), col = c("red", "blue", "black", "gray"), lty=c(1,1))}
+```
+
+
+##### Part L 
+```{r}
+{x1<- pred$x[,3]
+d1<- density(x1)
+hist(x1, breaks = 20, freq = F, main = "Histogram of LDA 3", xlab = "LDA 3") #make frequency histogram with proportion instead of count
+lines(d1) #add density
+mycol <- rgb(255, 0, 0, max = 255, alpha = 75) #Set transparency and save this to a new color
+polygon(d1,col=mycol) #add the density color
+segments(x0=x1[1:30],y0=0, x1=x1[1:30], y1=0.01, col="red")
+segments(x0=x1[31:60],y0=0, x1=x1[31:60], y1=0.01, col="blue")
+segments(x0=x1[61:90],y0=0, x1=x1[61:90], y1=0.01, col="black")
+segments(x0=x1[91:120],y0=0, x1=x1[91:120], y1=0.01, col="grey")
+load_ld1<- lda_taxa$scaling[,3]
+text(load_ld1,rep(.005,length(load_ld1)),labels=names(load_ld1),srt=45,adj=c(0,.5)) 
+legend("topright", legend =c("Species I", "Species II", "Species III", "Species IV"), col = c("red", "blue", "black", "gray"), lty=c(1,1))}
+```
+
+***
+
+### Question 5.2
+**Question:** Using the histogram + density plots you made in 4 (e.g. just inspect them visually), please tell your research students: which plant trait is best to distinguish Species IV? Confirm by calculating the mean of that trait value for Species IV and for all the other species combined.
+
+```{r}
+#from LDA1 Histogram: Species IV can best be identified by sepal
+data.frame(mean=tapply(taxa$Sepal, taxa$name, mean), sd=tapply(taxa$Sepal, taxa$name, sd)) #Sepal is much higher in species IV
+```
+Species IV can best be identified by sepal
+
+***
+
+### Question 6
+**Question:** Using the histogram + density plots you made in 4 (e.g. just inspect them visually), please tell your research students: which plant trait is best to distinguish Species III? Confirm by calculating the mean of that trait value for Species III and for all the other species combined.
+
+```{r}
+#from LDA2 Histogram: Species III can best be identified by Leaf
+data.frame(mean=tapply(taxa$Leaf, taxa$name, mean), sd=tapply(taxa$Leaf, taxa$name, sd)) #Leaf is higher in species III
+```
+Species III can best be identified by Leaf
+
+***
+
+### Question 7
+**Question:** Using the histogram + density plots you made in 4 (e.g. just inspect them visually), please tell your research students: which plant trait is best to distinguish Species I? Confirm by calculating the mean of that trait value for Species I and for all the other species combined.
+
+```{r}
+#from LDA3 Histogram: Species I can best be identified by Petiole
+data.frame(mean=tapply(taxa$Petiole, taxa$name, mean), sd=tapply(taxa$Petiole, taxa$name, sd)) #Petiole is higher in species I
+```
+Species I can best be identified by Petiole
+
+***
+
+## Section 2: Redundancy Analysis
+### Question 8
+
+We will evaluate a data set that consists of the relative abundance of 15 different multi-locus genotypes (clones) of the species Daphnia pulex at each of 19 ponds in southwest Michigan. We would like to determine how much of the among-site variation in D. pulex clonal composition is associated with environmental properties at each site. The  clonal data was obtained by extracting DNA from 20 individuals at each site, determining their genotype at 8 microsatellite loci, identifying the total number of unique genotypes at these 8 loci, and counting the relative frequency of each clone in each site. The environmental data consists of an array of abiotic water variables (pH, TN = total Nitrogen concentration, TP = total phosphorus concentration) and biotic variables such as the density of invertebrate predators at each site.
+
+* Part A: Read the data in clone.txt into a variable called clone, and read the data in environment.txt into a variable called env. You can see there are 15 clones, each assigned a letter as a label.
+* Part B: Load the external R package “vegan”. Hellinger-transform the clone data and assign it to a new variable called hel_clone.
+* Part C: Run an RDA analysis using the RDA command and assign the results to a new variable called model. The response matrix is clone and the predictor matrix is env. Don’t worry for now about any additional variable transformations, you can use the raw environmental values and the Hellinger-transformed clone values.
+* Part D: What proportion of the variation in clonal composition is explained by environmental properties? Give the adjusted R2 value (using RsquareAdj).
+* Part E: Use the summary(model) output to get the “Accumulated constrained eigenvalues” and tell me how much variation in the clone matrix is explained by the first two RDA axes.
+* Part F: Use biplot(model) to visually inspect and tell me: what are the environmental preferences of clone h? How about clone b?
+* Part G: What is the average value of Notonectid for all sites where clone h appears? How about for clone b?
+* Part H: What is the average value of TN for all sites where clone b appears? How about for clone c?
+
+##### Part A
+```{r}
+clone <- read.table(paste(dir,"/clone.txt",sep=""), header = T)
+head(clone)
+env <- read.table(paste(dir,"/environment.txt", sep=""), header = T)
+head(env)
+```
+
+##### Part B
+```{r}
+#Vegan package installed in the beginning of code
+hel_clone <- decostand(clone, method = "hellinger")
+head(hel_clone)
+```
+
+##### Part C
+```{r}
+model <- rda(hel_clone, env)
+summary(model)
+```
+
+##### Part D
+```{r}
+R_Adj <- RsquareAdj(model)
+cat("The Adjusted R2 is:", round(R_Adj$adj.r.squared,4))
+```
+
+##### Part E
+```{r}
+summary(model)
+```
+
+The percent variation is .4238 or 42.38% which we get by combining the RDA1 and RDA2. 
+
+##### Part F
+```{r}
+plot(model)
+```
+
+#### Part G
+```{r}
+df <- cbind.data.frame(hel_clone, env)
+clone_h <- subset(df, df$h>0)
+cat("Average value of Notonectid where clone h appears:",mean(clone_h$Notonectid))
+
+clone_b <- subset(df, df$b>0)
+cat("\nAverage value of Notonectid where clone b appears:",mean(clone_b$Notonectid))
+```
+
+#### Part H
+```{r}
+clone_b <- subset(df, df$b>0)
+cat("Average value of TN where clone b appears:",mean(clone_b$TN))
+
+clone_c <- subset(df, df$c>0)
+cat("\nAverage value of TN where clone c appears:",mean(clone_c$TN))
+```
+
+***
+
+### Question 9
+Sites that are close to one another may have more similar clonal composition than sites that are far away from one another. Sites that are close to one another may also have more similar environmental properties than sites that are far away. We need to remove the potential for spatial proximity of sites to confound the signal between clone and environment. We will conduct a partial RDA, where we come up with new ordinations of the Y matrix (hel_clone) in reduced dimensional space that are constrained by X (env), but only after that X matrix has the effects of the potentially covarying matrix Z removed.
+
+* Part A: Read the data in space.txt into a variable called space. Use the help documentation for the RDA command (?rda) to add the additional Z matrix into the analysis.
+* Part B: What is the proportion of variation explained (adjusted R2 value) of the comparison between clone and environment now?
+
+##### Part A
+```{r}
+space <- read.table(paste(dir,"/space.txt", sep = ""), header = T)
+model_z <- rda(hel_clone, env, space)
+summary(model_z)
+```
+
+##### Part B
+```{r}
+R2 <-RsquareAdj(model_z)
+cat("The Adjusted R2 now is:", round(R2$adj.r.squared,4))
+```
+
+
+
+
+
+

@@ -1,0 +1,258 @@
+---
+title: 'Linear Models'
+author: "Alex Fitz"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_depth: 3
+  word_document: default
+---
+
+```{r, warning = FALSE, message=FALSE}
+if (!require(fitdistrplus))
+  {install.packages("fitdistrplus")}
+  library(fitdistrplus)
+
+if (!require(lmtest))
+  {install.packages("lmtest")}
+  library(lmtest)
+
+if (!require(titanic))
+  {install.packages("titanic")}
+  library(titanic)
+```
+
+
+\newpage
+## Section 1: Linear Regression
+
+### Question 1
+In a study of genetic variation in sugar maple, seeds were collected from native trees in the eastern United States and Canada and planted in a nursery in Wooster, Ohio. The time of leafing out of these seedlings can be related to the latitude and mean July temperature of the place of origin of the seed. The variables are X1 = latitude, X2 = July mean temperature, and Y = weighted mean index of leafing out time. (Y is a measure of the degree to which the leafing out process has occurred. A high value is indicative that the leafing out process is well advanced.) The data is in the file maple.txt.
+
+#### Part A
+**Question: ** Read the data into R and save it to a variable called “maple”. Make a histogram of the variable LeafIndex. Use qqnorm, qqline, and shapiro.test to assess the normality of this variable. Is the data approximately normally distributed?
+
+```{r}
+dir <- "~/Documents/GitHub/code_examples/R/RMarkdown Examples"
+maple <- read.table(paste(dir,"/maple.txt",sep=""), header = T)
+head(maple)
+hist(maple$LeafIndex,freq=T, xlab="Leaf Index", breaks = 30, main = "Histogram of LeadIndex") 
+{qqnorm(maple$LeafIndex)
+qqline(maple$LeafIndex)}
+shapiro.test(maple$LeafIndex)
+``` 
+
+Here we have a null hypothesis that the distribution is normal, and we get a pvalue of 0.39, so we fail to reject our null hypothesis and the data is not normally distributed.
+
+***
+
+#### Part B
+**Question: **Load the library “fitdistrplus” and use the command descdist to evaluate the distribution of LeafIndex and save the results to a variable called “fit.norm”. What value will you fill in for the function input argument “discrete”? Why? Please use boot = 500 (to calculate 500 bootstrap values of the skewness and kurtosis of LeafIndex observations. A bootstrap samples values from the observations with replacement, meaning that an observation can be chosen more than once. This is a technique to assess variance in our estimate of skewness and kurtosis).
+
+```{r}
+#Library/Installation is at beginning of script
+fit.norm<-descdist(maple$LeafIndex, discrete = FALSE, boot=500)
+```
+
+Discrete should be false for this because the response variable (LeafIndex) is continuous.
+
+***
+
+#### Part C
+**Question: **The descdist results provide a guideline about the distribution of our data. According to the plot that is output after using this command, two distributions (out of normal, uniform, exponential, logistic, beta, lognormal, and gamma) are good candidates for LeafIndex: normal and beta. Please look up the beta distribution on Wikipedia (which has excellent entries for probability distributions):
+
+And tell me – what is the interval or range of values that a beta distributed variable can take? Please write a short argument here about why a beta distribution is unlikely for LeafIndex.
+
+**Answer: **Beta distribution is defined on the interval [0,1] parametrized by positively shaped distributions. The LeafIndex is not bounded from [0,1] while the beta distribution is, so it is very unlikely for it to take a beta distribution. 
+
+***
+
+#### Part D 
+**Question: **Now that we are more confident about the normality of our response variable, we proceed with regression. Regress LeafIndex on Latitude (using lm) and save the results to a variable called “mod1”.
+```{r}
+mod1<-lm(LeafIndex~Latitude,data=maple)
+summary(mod1)
+```
+
+***
+
+#### Part E 
+**Question: **Is Latitude a useful predictor of leaf index? Give the model estimate of the regression beta coefficient and the standard error around that estimate – do not just write that out. To get full credit, please index this information either from mod1 or by saving summary(mod1) to a new variable and indexing that variable. Does LeafIndex increase or decrease with Latitude?
+
+```{r}
+s_mod1<-summary(mod1)
+s_mod1$coefficients[,1:2]
+```
+
+Here we have a positive beta coefficient and the standard error around that beta coefficient. This means that latitude is a useful predictor of leaf index. Since the beta coefficient is positive, leafindex increases with latitude.
+
+***
+
+#### Part F
+**Question: **Regress LeafIndex on JulyTemp (using lm) and save the results to a variable called “mod2”. Is JulyTemp a useful predictor of leaf index? Give the model estimate of the regression beta coefficient and the standard error around that estimate. Does LeafIndex increase or decrease with JulyTemp?
+
+```{r}
+mod2<-lm(LeafIndex ~ JulyTemp, data= maple)
+s_mod2<-summary(mod2)
+s_mod2$coefficients[,1:2]
+```
+
+Looking at the JulyTemp regressed against LeafIndex, it is also a good indicator since it has a negative beta coeffient, and also a small standard error around that coefficient. Since the beta coefficient is negative that means that LeafIndex will decrease with JulyTemp.
+
+***
+
+#### Part G 
+**Question: **Regress LeafIndex on JulyTemp and Latitude (using lm) and save the results to a variable called “mod3”. Give the model estimates of the regression beta coefficients and the standard error around those estimates.
+```{r}
+mod3<-lm(LeafIndex ~ JulyTemp + Latitude, data=maple)
+s_mod3<-summary(mod3)
+s_mod3$coefficients[,1:2]
+```
+
+***
+
+#### Part H
+**Question: **Use AIC (command AIC) and likelihood ratio tests to determine a minimal adequate model. Why did you include or exclude a given predictor? Report the AIC values then report the results of the likelihood ratio test.
+
+```{r}
+cat("AIC of mod1:", AIC(mod1),"\n")
+cat("AIC of mod2:", AIC(mod2),"\n")
+cat("AIC of mod3:", AIC(mod3))
+```
+
+When examining the AIC's we can see that we get the lowest AIC for mod3, but that was very similar to mod1. Using AIC to measure the likelihood is good, because it penalizes the user for each predictor variable. 
+
+```{r}
+#Here we use mod3 as maximum likelihood model
+cat("Likelihood Ratio (mod3-mod1):",pchisq(2 * (logLik(mod3) - logLik(mod1)), df = 1, lower.tail=FALSE),"\n")
+cat("Likelihood Ratio (mod3-mod2):",pchisq(2 * (logLik(mod3) - logLik(mod2)), df = 1, lower.tail=FALSE),"\n")
+```
+
+After using the AIC's, we determined that mod1 and mod3 were both very good predictors of leadindex, only differing in their AIC by a very small number. Using the likelihod ratio test we could whether or not mod3 and mod1 differed from each other in approximately a chi-squared distribution. Here we see that there was a p-value of 0.148, thus meaning that mod1 does not differ from mod3 in a statistically significant way. For my minimum adequate model I would include only Latitude, because it is able to predict leafindex almost similarly to when Julytemp is included, but it is better since its only one predictor. So, mod1 is my minimum adequate model. 
+
+***
+
+#### Part I
+**Question: **Construct a null model (and save that to a variable called “mod_null”), then use AIC and likelihood ratio tests to determine whether the minimal adequate model differs in log-likelihood from the null model. Is the minimal adequate model more or less likely than the null model, given our observed data?
+
+```{r}
+mod_null<-lm(LeafIndex~1,data=maple)
+
+cat("Mod_Null:", AIC(mod_null), "\n")
+cat("Mod3:", AIC(mod1))
+```
+
+This indicates that the AIC of the minimum adequate model (mod3) is lower than the null model, which indicates that the minimum adequate model is more likely to occur than the null model, given our observed data. 
+
+```{r}
+cat("Likelihood Ratio (Minimum Adequate Model-Null Model):",pchisq(2 * (logLik(mod1) - logLik(mod_null)), df = 1, lower.tail=FALSE),"\n")
+```
+
+Using the likelihood ratio test, we get a pvalue of 3.67e-07 when comparing the minimum adequate model to the null model in an approximately chi-square distribution. This means that the minimum adequate model differs from the null model in a statistically significant way. 
+
+***
+
+## Section 2: Generalized Linear Models
+### Question 2
+
+Titanic was a British passenger liner that sank in 1912 after colliding with an iceberg. Only 31% of passengers survived in this disaster. Let’s try to predict who was more likely to survive and why.
+
+* Survived - Survival (0 = No; 1 = Yes).
+* Pclass - Passenger Class (1 = 1st; 2 = 2nd; 3 = 3rd)
+* Name - Name
+* Sex - Sex
+* Age - Age
+* Sibsp - Number of Siblings/Spouses Aboard
+* Parch - Number of Parents/Children Aboard
+* Ticket - Ticket Number
+* Fare - Passenger Fare
+* Cabin - Cabin
+* Embarked - Port of Embarkation (C = Cherbourg; Q = Queenstown; S = Southampton)
+
+#### Part A
+**Question: **The response variable (Survived) is binomially distributed. We will use a logit-link function. Please fit a GLM (using glm) of Survived using Pclass, Fare, Age, Sex, SibSp, Parch, and Embarked as predictors. Save the results to a variable called “mod1”.
+```{r}
+#Package installed at beginning of script
+data(titanic_train)
+
+mod1<-glm(Survived ~ Pclass+Fare+Age+Sex+SibSp+Parch+Embarked, data=titanic_train,family=binomial)
+summary(mod1)
+```
+
+***
+
+#### Part B
+**Question: **Save the results of summary(mod1) to a new variable called “res1”. Give the model estimates of the regression beta coefficients and the standard error around those estimates (index res1 to give me this information).
+```{r}
+res1<-summary(mod1)
+res1$coefficients[,1:2]
+```
+
+***
+
+#### Part C
+**Question: **Use the step command to conduct a stepwise regression model reduction and save the results to a new variable called “mod2”, then save the results of summary(mod2) to a new variable called “res2”.
+```{r}
+mod2<-step(mod1)
+res2<-summary(mod2)
+res2
+```
+
+***
+
+#### Part D
+**Question: **Construct a null model with no predictors and save the results of the glm of that null model to a new variable called “mod_null”.
+```{r}
+mod_null<-glm(Survived~1, data=titanic_train, family=binomial)
+summary(mod_null)
+```
+
+***
+
+#### Part E
+**Question: **Give me with a detailed numerical description of the model comparison results using AIC and likelihood tests (for mod1, mod2, and mod_null). (i) Tell me the minimal adequate model, (ii) whether that differs from the null model, (iii) using AIC and likelihood ratio tests. and (iv) tell me the estimate of the effects (beta coefficients) and give the standard error around that estimate.
+
+```{r}
+cat("AIC (mod_null):", AIC(mod_null), "\n")
+cat("AIC (mod1):", AIC(mod1),"\n")
+cat("AIC (mod2):", AIC(mod2),"\n")
+```
+
+When examining the AIC values, we see that both mod1 and mod2 have similar values, while the null model is significantly larger. Next, we will conduct the likelihood ratio test. 
+
+Here would would use mod1 as our maximum likelihood model, because it has the most predictors. 
+
+```{r}
+cat("Likelihood Ratio (Mod1-Mod2):",pchisq(2 * (logLik(mod1) - logLik(mod2)), df = 5, lower.tail=FALSE),"\n")
+```
+
+When examining the results, we see that there is a pvalue of 0.496 when comparing mod1, to mod2. This means that as we decrease the number of predictors to find our minimum adequate model, there was very little change in the difference of the models. This agrees with our calculated AIC values. So here mod2 (Survived ~ Pclass + Age + Sex + SibSp) is our minimum adequate model, as we would pick our model with the least amount of predictors because there is a penalty for more predictors along with it being harder for researchers to collect unecessary data. To show that our minimum adequate model differs from our null model, we calculate the pvalue given an chi-square approximate distribution. 
+
+```{r}
+cat("Likelihood Ratio (Mod2-Null Model):",pchisq(2 * (logLik(mod2) - logLik(mod_null)), df = 3, lower.tail=FALSE),"\n")
+```
+
+Here we can an extremely small pvalue, showing that the distributions are different. 
+
+
+```{r}
+#Beta Coefficients
+res2$coefficients[,1:2]
+```
+
+***
+
+#### Part F
+**Question: **Provide a verbal overview of the effects of each predictor in the minimal adequate model. How do you interpret the effect of each predictor? For this, use the sign of the beta coefficient (negative or positive) to describe how that predictor influences your probability of survival.
+
+```{r}
+cbind(mod2$coefficients, confint(mod2)[,1], confint(mod2)[,2])
+```
+
+First, above is a table of the beta coefficient, and an estimate of the effect given our confidence interval around the effect size. 
+
+When we examine the beta coefficient, we can find the odds ratio. Looking at class, which given our probability of survival means that those which were a lower class (1st) had a 13% higher chance of survival than (2nd) class. We can note that for Age there is very little relationship between survival as it is closely dispersed around 0, but the slight relationship that exists is negatively associated with age, so every year older someone is means they are 0.4% less likely to survive. When looking at sex, we see that the beta coefficient is negative, so males are 26.2% less likely to survive. We also note a negative beta coefficient for the number of siblings, which means that for each sibling someone has, it means they are 3.7% less likely to survive.
+
