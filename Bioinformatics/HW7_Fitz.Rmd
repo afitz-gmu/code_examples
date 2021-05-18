@@ -1,0 +1,302 @@
+---
+title: 'Homework Assignment 7'
+author: "Alex Fitz"
+output:
+  word_document: default
+  html_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r, warning = FALSE, message=FALSE}
+if (!require(BiocManager))
+  {install.packages("BiocManager")}
+  library(BiocManager)
+
+if (!require(BiocManager::install("multtest")))
+  {BiocManager::install("multtest")}
+  library(multtest)
+
+if (!require(BiocManager::install("genefilter")))
+  {BiocManager::install("genefilter")}
+  library(genefilter)
+
+if (!require(ALL))
+  {install.packages("ALL")}
+  library(ALL)
+
+```
+
+
+\newpage
+
+### Question 1: Cluster analysis on Zyxin gene expression.
+
+(a) Produce a scatter plot of the Zyxin gene expression values using different symbols for the two groups.
+
+```{r}
+data(golub)
+zyxin <- data.frame(golub[2124,])
+gfactor <- factor(golub.cl, level=0:1, labels = c("ALL", "AML"))
+stripchart(golub[2124,]~gfactor, xlab = "Zyxin Expression Value", method = "jitter", pch=as.numeric(gfactor))
+```
+
+
+(b) Use single-linkage cluster analysis to see whether Zyxin gene expression falls into two different clusters.
+
+```{r}
+plot(hclust(dist(zyxin, method = "euclidian"), method = "single"))
+```
+
+Yes, here we can see that there are two distinct clusters. 
+
+(c) Use k-means cluster analysis on Zyxin gene expression with k = 2 without any initial values. Then re-do the k-means clustering using the mean Zyxin expression of the ALL and AML patients as the initial parameters (Note that this is cheating!). Do the two clusters reflect the diagnosis of the patient groups either with or without the initial parameters?
+
+```{r}
+c0 <- kmeans(zyxin, 2)
+clus <- c0$cluster
+df <- cbind.data.frame(zyxin, clus)
+stripchart(df$golub.2124...~clus, vertical = TRUE); points(1, c0$centers[1], col = "blue", pch = 20, cex = 2); points(2,c0$centers[2], col = "red", pch = 20, cex = 2)
+
+initial <- as.matrix(tapply(golub[2124,], gfactor, mean), nrow = 2, ncol = 1, byrow = TRUE)
+c1 <- kmeans(zyxin, initial,nstart = 10)
+c1
+clus <- c1$cluster
+df <- cbind.data.frame(zyxin, clus)
+stripchart(df$golub.2124...~clus, vertical = TRUE); points(1, c1$centers[1], col = "blue", pch = 20, cex = 2); points(2,c1$centers[2], col = "red", pch = 20, cex = 2)
+
+
+```
+
+With the graphs we can see that the averages and clusters improve with the initial parameters. 
+
+(d) Did the clustering improve with the initial parameters? Did you get a perfect classifier? Why or why not?
+
+```{r}
+table(c0$cluster, gfactor)
+table(c1$cluster, gfactor)
+```
+
+With the initial parameters there was a significant improvement. Without the initial parameters there was a 52% misclassification rate while with the initial parameters there was only a 16% misclassification rate which is significantly better. 
+
+(e) Perform a bootstrap on the cluster means. Do the confidence intervals for the cluster means overlap?
+
+```{r}
+n <- nrow(zyxin)
+nboot <- 1000
+bootcl <- matrix(0, nrow= nboot, ncol = 2)
+initial <- as.matrix(tapply(golub[2124,], gfactor, mean), nrow = 2, ncol = 1, byrow = TRUE)
+
+for (i in 1:nboot){
+    dat.star <- zyxin[sample(1:n,replace=TRUE),]
+    cl <- kmeans(dat.star, initial, nstart = 10)
+    bootcl[i,] <- c(cl$centers[1,],cl$centers[2,])
+}
+
+quantile(bootcl[,1],c(0.025,0.975))
+quantile(bootcl[,2],c(0.025,0.975))
+
+```
+
+There is no overlap. 
+
+### Question 2: Gene expression similar to CCND3. 
+Recall that we did various analysis on the expression data of the CCND3 (Cyclin D3) gene of the Golub (1999) data.
+
+(a) Use genefinder() to find the ten genes with expression patterns most similar to CCND3 (Cyclin D3). Give their probe IDs as well as their biological names.
+
+```{r}
+gf <- genefinder(golub, 1042, 10, method = "euc")
+gf[[1]]$indices
+golub.gnames[gf[[1]][[1]],2:3]
+```
+
+(b) Produce 2 side-by-side plots of 4 separate side-by-side, vertical boxplots for CCND3 and the top 3 genes expressed most similarly to CCND3. The first set of 4 side-by-side boxplots should use the ALL expression values and the second set of 4 boxplots should use the AML expression values. Use par(mfrow = c(1,2)) to specify 2 horizontal side-by-side plots. Plot the boxplots and then use par(mfrow = c(1,1)) to return to single plots. How similar are the gene expression patterns for both the ALL and AML patients?
+
+
+```{r}
+boxplot(golub[1042,] ~gfactor)
+boxplot(golub[394,] ~gfactor)
+boxplot(golub[1834,] ~gfactor)
+boxplot(golub[573,] ~gfactor)
+```
+
+The genes look very similar. 
+
+(c) Use grep() to find all the other genes that contain “Cyclin” in their names and compare their smallest distances to the distances found using genefinder() above. How do the distances differ?
+
+```{r}
+cycl <- grep("Cyclin", golub.gnames[,2])
+dc <- as.matrix(dist(golub[cycl,], method = "euclidian"))
+rownames(dc) <- c(cycl)
+colnames(dc) <- c(cycl)
+```
+
+We can see that the distances are relatively small which makes sense because if they all have cyclin in them that would mean that they have similar functions. 
+
+### Question 3: Outlier in MCM3 gene expression. 
+In the example for MCM3, a plot of the two sets of MCM3 expression values shows that there is an outlier.
+
+(a) Construct a 2D Scatter Plot of the two sets of MCM3 expression data and invent a manner to find the row number of the outlier.
+
+```{r}
+mcm3 <- grep("MCM3",golub.gnames[,2])
+x <- golub[mcm3[1],] 
+y <- golub[mcm3[2],]
+plot(x,y)
+
+which.min(y)
+```
+
+The row of the outlier is 21. 
+
+(b) Test for linear correlation with all the data, then remove the outlier, and then test the correlation coefficient again. How do the results differ?
+
+```{r}
+cor.test(x,y)
+cor.test(x[-21],y[-21])
+```
+
+When the outlier is removed there is a significant different in the correlation coefficient. It increases from 0.637 to 0.875. 
+
+(c) Perform the bootstrap to construct confidence intervals of the correlation coefficients with and without the oultier. How do they differ?
+
+```{r}
+nboot <- 1000
+boot.cor <- matrix(0, nrow = nboot, ncol =1)
+data <- matrix(c(x,y),ncol=2,byrow=FALSE)
+
+for (i in 1:nboot){
+  dat.star <- data[sample(1:nrow(data),replace=TRUE),]
+  boot.cor[i,] <- cor(dat.star)[2,1]
+}
+mean(boot.cor)
+
+nboot <- 1000
+boot.cor <- matrix(0, nrow = nboot, ncol =1)
+data <- matrix(c(x[-21],y[-21]),ncol=2,byrow=FALSE)
+
+for (i in 1:nboot){
+  dat.star <- data[sample(1:nrow(data),replace=TRUE),]
+  boot.cor[i,] <- cor(dat.star)[2,1]
+}
+mean(boot.cor)
+```
+
+We see the same trend. Whenever the outlier is removed the correlation coefficient is increased by about 23%. 
+
+### Question 4: Cluster analysis on a portion of the Golub data.
+
+(a) Use the grep() function with the string “oncogene” to select the oncogenes from the Golub data and plot the tree from a single- linkage cluster analysis of the patients using just the expression of the oncogenes.
+
+```{r}
+ogene <- grep("oncogene", golub.gnames[,2])
+plot(hclust(dist(golub[ogene,],method="euclidian"),method="single"))
+```
+
+(b) Do you observe any meaningful AML or ALL clusters?
+
+yes, there appear to be meaningful clusters. 
+
+(c) Use grep("antigen”) to select the antigens and construct another tree. Do you see any meaningful clusters now?
+
+```{r}
+antigen <- grep("antigen", golub.gnames[,2])
+plot(hclust(dist(golub[antigen],method="euclidian"),method="single"))
+```
+
+Yes, we can see that the first cluster is very large and looks to be significant. 
+
+(d) Use grep("receptor”) to select the receptor genes and construct another tree. Do you see any meaningful clusters now?
+
+```{r}
+receptor <- grep("receptor", golub.gnames[,2])
+plot(hclust(dist(golub[receptor],method="euclidian"),method="single"))
+```
+
+### Question 5: Principal Components Analysis on part of the ALL data.
+
+(a) Construct an expression set with the patients with B-cell in stage B1, B2, and B3. Compute the corresponding ANOVA p-values for all the gene expressions. Construct the expression set with the p-values smaller than 0.001. Report the dimensionality of the data matrix with gene expressions that have significantly different means across the B1, B2, and B3 leukemia subtypes.
+
+```{r}
+data(ALL)
+bcell <- ALL[,ALL$BT %in% c("B1", "B2", "B3")]
+anova <- apply(exprs(bcell), 1, function(x) anova(lm(x~ bcell$BT))$Pr[1])
+lowp <- bcell[anova<0.001,]
+dim(exprs(lowp))
+```
+
+(b) Are all the correlations between the patients positive?
+
+```{r}
+min(cor(exprs(lowp)))
+```
+
+Yes, they are all positive as the minimum is 0.58. 
+
+(c) Compute the eigenvalues of the correlation matrix. Report the largest five. Are the first three larger than one? What can you conclude about the first principal component?
+
+```{r}
+eigen(cor(exprs(lowp)))$values[1:5]
+```
+
+We can see that the first principal component can explain a significant portion of the data (65.2%)
+
+(d) Program a bootstrap of the largest five eigenvalues. Report the bootstrap 95% confidence intervals and draw relevant conclusions.
+
+```{r}
+data <- exprs(lowp) 
+p <- ncol(data)
+n <- nrow(data) 
+nboot<-1000
+
+ev <- array(dim=c(nboot,p))
+
+for (i in 1:nboot){dat.star <- data[sample(1:n,replace=TRUE),]
+  ev[i,] <- eigen(cor(dat.star))$values}
+
+for (j in 1:5) print(quantile(ev[,j],c(0.025,0.975)))
+```
+
+We can see that the first three are significant. 
+
+(e) Use prcomp() and autoplot() to perform PCA analysis and then plot the patients in 2D space while using the first two principal components as the axes. Do you see any clustering of the B1, B2, or B3 leukemia subtypes?
+
+```{r}
+biplot(princomp(data,cor=TRUE),pc.biplot=T,cex=0.5,expand=0.8)
+```
+
+There doesn't appear to be any significant clustering. Most of the genes appear to be clustered together. 
+
+### Question 6: Some correlation matrices.
+
+(a) Verify that the eigenvalues of the matrices are 1.8, 0.2, 2.6, 0.2, 0.2; and 1.500000e+00, 1.500000e+00, -7.644529e-17.
+
+```{r}
+m <- matrix(c(1,-0.8, -0.8, 1), nrow = 2)
+eigen(m)
+
+m <- matrix(c(1,0.8,0.8,0.8,1,0.8,0.8,0.8,1), nrow = 3)
+eigen(m)
+
+m <- matrix(c(1,-0.5,-0.5,-0.5,1,-0.5,-0.5,-0.5,1), nrow = 3)
+eigen(m)
+```
+
+(b) How much variance is captured by the first principal component corresponding to the second matrix?
+
+```{r}
+(2.6)/3 * 100
+```
+86.66667% 
+
+(c) Verify that the first eigenvector of the second correlation matrix contains values with identical signs.
+
+```{r}
+m <- matrix(c(1,0.8,0.8,0.8,1,0.8,0.8,0.8,1), nrow = 3)
+eigen(m)
+```
+

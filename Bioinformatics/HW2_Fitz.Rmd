@@ -1,0 +1,372 @@
+---
+title: 'Homework Assignment 2'
+author: "Alex Fitz"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_depth: 3
+  word_document: default
+---
+
+```{r, warning = FALSE, message=FALSE}
+if (!require(BiocManager))
+  {install.packages("BiocManager")}
+  library(BiocManager)
+
+if (!require(BiocManager::install("multtest")))
+  {BiocManager::install("multtest")}
+  library(multtest)
+
+
+```
+
+
+\newpage
+### Question 1: Illustration of mean and standard deviation.
+
+#### Part A
+**Question: ** Compute the mean and the standard deviation for 1, 1.5, 2, 2.5, 3.
+
+```{r}
+nums <- c(1, 1.5, 2, 2.5, 3)
+sd(nums)
+mean(nums)
+``` 
+
+***
+
+#### Part B
+**Question: ** Compute the mean and the standard deviation for 1, 1.5, 2, 2.5, 30.
+
+```{r}
+large <- c(1, 1.5, 2, 2.5, 30)
+sd(large)
+mean(large)
+```
+
+
+***
+
+#### Part C
+**Question: ** Comment on the differences.
+
+**Answer: ** The difference here is that instead of a 3 we have 30 which skews the data. This is the impact of having an outlier in your dataset
+
+***
+
+### Question 2: Testing normality of gene expression. Consider the gene expression values in row 790 and 66 of the Golub et al. (1999) data.
+
+#### Part A
+**Question: ** Produce a box plot for the expression values of the ALL patients and comment on the differences. Are there outliers?
+
+```{r}
+data(golub)
+golub.factor <- factor(golub.cl, levels = 0:1, labels = c("ALL", "AML"))
+boxplot(golub[790,]~golub.factor)
+# we can see that there are three outliers
+boxplot(golub[66,]~golub.factor)
+# 66 has no outliers
+
+``` 
+
+***
+
+#### Part B
+**Question: ** Produce a QQ-plot and formulate a hypothesis about the normality of the genes.
+
+```{r}
+
+qqnorm(golub[790, golub.factor == "ALL"])
+qqline(golub[790, golub.factor == "ALL"])
+
+# the line is well off from the data with 790
+
+
+qqnorm(golub[66, golub.factor == "ALL"])
+qqline(golub[66, golub.factor == "ALL"])
+# 66 is on track with the line
+
+```
+
+***
+
+#### Part C
+**Question: ** Compute the mean and the median for the expression values of the ALL patients and compare these. Do this for both genes.
+
+```{r}
+
+mean(golub[66, golub.factor == "ALL"])
+median(golub[66, golub.factor == "ALL"])
+
+mean(golub[790, golub.factor == "ALL"])
+median(golub[790, golub.factor == "ALL"])
+
+```
+
+
+***
+
+
+### Question 3: Effect size. An important statistic to measure is the effect size which is defined for a sample as x/s. It measures the mean relative to the standard deviation, so that its value is
+
+#### Part A
+**Question: ** Determine the five genes with the largest effect size of the ALL patients from the Golub et al. (1999) data. Comment on their size.
+
+```{r}
+
+effect <- apply(golub[,golub.factor=="ALL"], 1,function(x) {mean(x)/sd(x)})
+ord <- order(effect, decreasing = TRUE)
+
+effect[ord[1:5]]
+
+``` 
+
+***
+
+### Question 4: Plotting gene expressions for CCND3. Use the gene expressions from CCND3 (Cyclin D3) of Golub et al. (1999) collected in row 1042 of the matrix golub from the multtest library. Use grep() to get the correct row for the CCND3 (Cyclin D3) gene expression values. After using the function plot(), you will produce an object on which you can program.
+
+**(a)** Produce a so-called stripchart for the gene expressions separately
+for the ALL as well as for the AML patients. Hint: Use factor()
+to separate the data between the two categories.
+**(b)** Rotate the plot to a vertical position and keep it that way for the
+questions to come.
+**(c)** Color the ALL expressions red and AML blue. Hint: Use the col
+parameter.
+**(d)** Add a title to the plot. Hint: Use the title() function.
+**(e)** Change the boxes into stars. Hint 1: Use the pch parameter.
+Hint 2: Using your favorite text editor, save the final script for later use.
+
+```{r}
+golubFactor <- factor(golub.cl, levels=0:1, labels = c("ALL", "AML"))
+ccnd3 <- agrep("^CCND3",golub.gnames[,2])
+
+stripchart(golub[ccnd3,] ~ golubFactor,
+           method = "jitter", 
+           cex.lab = 1.5,
+           vertical = TRUE,
+           col = c("red", "blue"), 
+           pch = "*",
+           xlab = "CCND3", 
+           ylab = NULL)
+title("CCND3 values plotted ALL vs. AML")
+
+``` 
+
+***
+
+
+### Question 5: Box-and-Whiskers plot of CCND3 expression. Use the gene expressions for CCND3 (Cyclin D3) of Golub et al. (1999) from row 1042 of the matrix golub for the ALL patients. Use grep() to get the correct row for the CCND3 (Cyclin D3) gene expression values.
+
+**(a)** Construct the box plot in Figure 2.15.
+**(b)** Add text to the plot to explain the meaning of the upper and
+lower part of the box.
+**(c)** Do the same for the whiskers.
+**(d)** Export your plot to eps format.
+```{r}
+
+golubFactor <- factor(golub.cl, levels=0:1, labels = c("ALL", "AML"))
+ccnd3 <- agrep("^CCND3",golub.gnames[,2])
+
+boxplot(golub[ccnd3,golubFactor=="ALL"],
+        cex.lab = 1.5, 
+        main = NULL,
+        xlab = "CCND3", 
+        ylab = " CCND3 expression" , 
+        xlim = c(0.5,2),
+        col = c("green"))
+
+
+arrows(1.4,1.93,1.24,1.93);
+text(1.55,1.93,"Median")
+
+arrows(1.4,2.59,1.24,2.59);
+text(1.65,2.59,"Upper Whisker")
+
+arrows(1.4,2.76610,1.24,2.76610);
+text(1.55,2.76610,"Outlier")
+
+arrows(1.4,0.45827,1.24,0.45827);
+text(1.55,0.45827,"Outlier")
+
+arrows(1.4,1.10546,1.24,1.10546);
+text(1.55,1.10546,"Outlier")
+
+arrows(1.4,1.81141,1.24,1.81141);
+text(1.62,1.81141,"First Quartile")
+
+arrows(1.4,2.178705,1.24,2.178705);
+text(1.62,2.178705,"Third Quartile")
+
+
+``` 
+
+```{r}
+
+golubFactor <- factor(golub.cl, levels=0:1, labels = c("ALL", "AML"))
+ccnd3 <- agrep("^CCND3",golub.gnames[,2])
+
+setEPS()
+postscript("Problem5.eps")
+boxplot(golub[ccnd3,golubFactor=="ALL"],
+        cex.lab = 1.5, 
+        main = NULL,
+        xlab = "CCND3", 
+        ylab = " CCND3 expression" , 
+        xlim = c(0.5,2),
+        col = c("green"))
+
+
+arrows(1.4,1.93,1.24,1.93);
+text(1.55,1.93,"Median")
+
+arrows(1.4,2.59,1.24,2.59);
+text(1.65,2.59,"Upper Whisker")
+
+arrows(1.4,2.76610,1.24,2.76610);
+text(1.55,2.76610,"Outlier")
+
+arrows(1.4,0.45827,1.24,0.45827);
+text(1.55,0.45827,"Outlier")
+
+arrows(1.4,1.10546,1.24,1.10546);
+text(1.55,1.10546,"Outlier")
+
+arrows(1.4,1.81141,1.24,1.81141);
+text(1.62,1.81141,"First Quartile")
+
+arrows(1.4,2.178705,1.24,2.178705);
+text(1.62,2.178705,"Third Quartile")
+
+dev.off()
+
+``` 
+
+***
+
+### Question 6: Box-and-whiskers plot of patients.
+
+#### Part A
+**Question: ** Use boxplot(data.frame(golub)) to produce a box-and-whiskers plot for each column (patient). Make a screen shot to save it in a word processor. Describe what you see. Are the medians of similar size? Is the inter quartile range more or less equal? Are there outliers?
+
+```{r}
+
+boxplot(data.frame(golub)) 
+
+``` 
+
+**Answer: ** Yes, it appears that the mean and inter quartile ranges of the data are simliar. This most likely means that the data had been pre-processed and scaled which it typical data preparations.
+
+***
+
+### Part B
+**Question: ** Compute the mean and medians of the patients. What do you observe?
+
+```{r}
+
+meanPPL <- apply(golub, 1, mean)
+sdPPL <- apply(golub, 1, sd)
+
+head(meanPPL)
+head(sdPPL)
+
+```
+
+
+**Answer: ** We can see that the mean is nearly zero which would indicate that the data has been preprocessed which is typical for standardizing data.
+
+***
+
+#### Part C
+**Question: ** Compute the range (minimal and maximum value) of the standard deviations, the IQR and MAD of the patients. Comment on what you observe.
+
+```{r}
+
+iqrPPL <- apply(golub, 1, IQR)
+madPPL <- apply(golub, 1, mad)
+
+
+
+range <- max(sdPPL) - min(sdPPL)
+range
+iqr <- max(iqrPPL) - min(iqrPPL)
+iqr
+mad <- max(madPPL) - min(madPPL)
+mad
+
+```
+
+**Answer: ** We can see that the data is very close together which would indicate that there aren't any extreme outliers skewing the data. This would likely be due to standardizing the data beforehand. 
+
+***
+
+### Question 7: Oncogenes in the Golub et al. (1999) data.
+
+#### Part A
+**Question: ** Select the oncogenes with the grep(“oncogene”) function and produce a box-and-whiskers plot of the gene expressions of the ALL patients. Be sure to perform a case-insensitive grep() search.
+
+```{r}
+
+ogene <- agrep("^oncogene",golub.gnames[,2])
+golubFactor <- factor(golub.cl, levels=0:1, labels = c("ALL", "AML"))
+
+boxplot(t(golub[ogene, golubFactor == "ALL"]))
+
+``` 
+
+***
+
+#### Part B
+**Question: ** Do the same for the AML patients and use par(mfrow=c(2,1)) to combine the two plots such that the second is beneath the first. The par(mfrow=c(2,1)) command splits the plotting canvas into 2 rows and 1 column. After the two boxplot() calls then you can go back to the default 1 plot per window behavior with the par(mfrow=c(1,1)) command. Are there genes with clear differences between the groups?
+
+```{r}
+par(mfrow=c(2,1))
+
+boxplot(t(golub[ogene, golubFactor == "ALL"]))
+title("Box plot of ALL patients")
+boxplot(t(golub[ogene, golubFactor == "AML"]))
+title("Box plot of AML patients")
+
+```
+
+
+**Answer: ** We can see that gene 2 and 37 are different between the ALL and AML patients. 
+
+***
+
+### Question 8: Descriptive statistics for the ALL gene expression values.
+
+#### Part A
+**Question: ** Compute the mean and median for gene expression values of the ALL patients, report their range and comment on it.
+
+```{r}
+
+range(apply(golub[,golubFactor=="ALL"], 1, mean))
+range(apply(golub[,golubFactor=="ALL"], 1, median))
+
+
+``` 
+
+The range for both the mean and median are very similar. 
+
+***
+
+#### Part B
+**Question: ** Compute the SD, IQR, and MAD for gene expression values of the ALL patients, report their range and comment on it.
+
+```{r}
+
+range(apply(golub[,golubFactor=="ALL"], 1, sd))
+range(apply(golub[,golubFactor=="ALL"], 1, IQR))
+range(apply(golub[,golubFactor=="ALL"], 1, mad))
+
+```
+
+Again, the ranges all match up very similarly which would be due to standardization. 
+
+
+***
+
+

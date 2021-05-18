@@ -1,0 +1,282 @@
+---
+title: 'Homework Assignment 5 Fitz'
+author: "Alex Fitz"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document: default
+  html_document:
+    toc: yes
+    toc_depth: 3
+---
+
+```{r, warning = FALSE, message=FALSE}
+if (!require(BiocManager))
+  {install.packages("BiocManager")}
+  library(BiocManager)
+
+if (!require(BiocManager::install("multtest")))
+  {BiocManager::install("multtest")}
+  library(multtest)
+
+if (!require(ape))
+  {install.packages("ape")}
+  library(ape)
+```
+
+### Question 1: CD33 gene. 
+Use grep() to find the index of the important gene CD33 among the list of genes in the golub.gnames table. For each test below formulate the null hypothesis, the alternative hypothesis, the p-value, and your conclusion.
+
+**(a):** Test the normality of both the ALL and AML expression values separate from each other.
+
+```{r}
+data(golub)
+golub.factor <- factor(golub.cl, levels = 0:1, labels = c("ALL", "AML"))
+cd33 <- agrep("^CD33", golub.gnames[,2])
+shapiro.test(golub[cd33, golub.factor == "ALL"])
+```
+
+We accept normality. 
+
+**(b):** Test for the equality of the variances between the ALL and AML patients.
+```{r}
+var.test(golub[cd33,] ~ golub.factor)
+
+```
+
+Equality of variances is accepted. 
+
+**(c):** Test for the equality of the means by an appropriate t-test.
+```{r}
+t.test(golub[cd33,] ~ golub.factor)
+
+```
+
+With a low p value it is rejected.
+
+**(d):** Is the experimental effect strong?
+
+Yes, the t value is -6.7878 which is an indicator of a strong effect.
+
+### Question 2: MYBL2 gene. 
+Use grep() to find the index of the gene “MYBL2 (V-myb avian myeloblastosis viral oncogene homolog-like 2)”.
+
+**(a):** Use a box plot to construct a hypothesis about the experimental effect of ALL vs. AML for the MYBL2 gene.
+
+```{r}
+MYBL2 <- agrep("^MYBL2", golub.gnames[,2])
+boxplot(golub[MYBL2,] ~ golub.factor)
+```
+
+**(b):** Test for the equality of the MYBL2 means by an appropriate t- test.
+```{r}
+t.test(golub[MYBL2, ] ~ golub.factor)
+
+```
+
+null hypothesis is accepted.
+
+### Question 3: HOXA9 gene. 
+The gene “HOXA9 (Homeo box A9)” can cause leukemia (Golub et al., 1999). Use grep() to find the index of this gene in the Golub data. (If your search returns more than one gene, then choose the first one in the list.)
+
+**(a):** Test the normality of the expression values of the ALL patients.
+```{r}
+HOXA9 <- agrep("^HOXA9", golub.gnames[,2])
+shapiro.test(golub[HOXA9,golub.factor=="ALL"])
+```
+
+Normality is rejected. 
+
+**(b):** Test for the equality of the means by the appropriate test.
+```{r}
+wilcox.test(golub[HOXA9,] ~ golub.factor)
+
+```
+
+Equality of means is rejected.
+
+### Question 4: Zyxin gene. 
+On NCBI there are various cDNA clones of zyxin.
+
+**(a):** Find the accession number of cDNA clone with IMAGE:3504464.
+
+BC002323.2
+
+**(b):** Test whether the frequencies of the nucleotides are equal for each nucleic acid.
+```{r}
+BC002323.2 <- as.data.frame(table(read.GenBank(c("BC002323.2"),as.character=TRUE)))$Freq
+chisq.test(BC002323.2)
+```
+
+Due to the low p value the equal frequencies hypothesis is rejected. 
+
+**(c):** Test whether the frequencies of “X94991.1” can be predicted by the probabilities of the cDNA sequence “BC002323.2”.
+```{r}
+
+X94991.1 <- as.data.frame(table(read.GenBank(c("X94991.1"),as.character=TRUE)))$Freq
+
+chisq.test(BC002323.2, p = X94991.1/sum(X94991.1))
+```
+
+
+### Question 5: Gene selection. 
+Select the genes from the golub dataset with the smallest two-sample t-test values for which the ALL mean is greater than the AML mean. Report the names of the best ten. Scan the Golub (1999) article for genes among the ten you found and briefly discuss their biological function.
+
+```{r}
+
+scan <- apply(golub, 1, function(x) t.test(x ~ golub.factor, alternative = "greater")$p.value)
+
+golub.gnames[order(scan)[1:10],2]
+
+```
+
+
+### Question 6: Antigens. 
+Antigens play an important role in the development of cancer. Order the antigens according to their p-values from Welch’s two-sample t-test with respect to gene expression values from the ALL and AML patients from the Golub et al. (1999) data.
+
+```{r}
+welches <- apply(golub, 1, function(x) t.test(x ~ golub.factor)$p.value)
+
+i <- agrep("^antigen", golub.gnames[,2])
+gi <- golub[i,]
+
+pindex <- welches[i]
+
+golubgindex <- golub.gnames[i,]
+golubgindex[order(pindex)[1:length(i)],2]
+```
+
+
+### Question 7: Mendelian genetic model. 
+A dihybrid cross in Mendelian genet- ics predicts that the four phenotypes associated with two independent traits show a 9:3:3:1 ratio in the F2 generation. In a certain experi- ment the offspring is observed with frequencies 930, 330, 290, 90. Do the data confirm the model?
+
+```{r}
+chisq.test(x=c(930,330,290,90),p=c(9/16,3/16,3/16,1/16))
+```
+
+The null hypothesis is accepted.
+
+### Question 8: Comparing two genes. 
+Consider the gene expression values in rows 790 and 66 from the Golub et al. (1999) dataset.
+
+(a) Produce a box plot for the ALL expression values and comment on the differences. Are there outliers?
+```{r}
+r66 <- golub[66, golub.factor == "ALL"]
+r790 <- golub[790, golub.factor == "ALL"]
+boxplot(r790, r66)
+```
+
+(b) Compute the mean and the median for the ALL gene expression values for both genes. Do you observe a difference between the genes?
+```{r}
+mean(r66)
+median(r66)
+mean(r790)
+median(r790)
+```
+
+yes, the mean and median for 790 is significantly lower than 66.
+
+(c) Compute three measures of spread for the ALL expression values for both genes. Do you observe a difference between the genes?
+```{r}
+IQR(r66)/1.35
+IQR(r790)/1.35
+
+sd(r66)
+sd(r790)
+
+mad(r66)
+mad(r790)
+```
+
+(d) Test by Shapiro-Wilk and Anderson-Darling the normality for the ALL gene expression values for both genes.
+```{r}
+shapiro.test(r790)
+shapiro.test(r66)
+```
+
+
+### Question 9: Normality tests for gene expression values. 
+Perform the Shapiro- Wilk normality test separately for the ALL and AML gene expression values. What percentage passed the normality test separately for the ALL and the AML gene expression values? What percentage passes both tests?
+
+```{r}
+allshapiro <- apply(golub[,golub.factor=="ALL"], 1, function(x) shapiro.test(x)$p.value)
+amlshapiro <- apply(golub[,golub.factor=="AML"], 1, function(x) shapiro.test(x)$p.value)
+
+as <- sum(allshapiro > 0.05) / length(allshapiro)
+as * 100
+
+am <- sum(amlshapiro > 0.05) / length(amlshapiro)
+am * 100
+```
+
+
+### Question 10: Two-sample tests on gene expression values. 
+
+**(a):** Perform the two-sample Welch t-test and report the names of the ten genes with the smallest p-values.
+
+```{r}
+welchtest <- apply(golub, 1, function(x) t.test(x ~ golub.factor)$p.value)
+or <- order(welchtest, decreasing = FALSE)
+golub.gnames[or[1:10],2]
+```
+
+**(b):** Perform the Wilcoxon rank-sum test and report the names of the ten genes with the smallest p-values.
+```{r, warning=FALSE}
+wilcoxtest <- apply(golub, 1, function(x) wilcox.test(x ~ golub.factor)$p.value)
+or <- order(wilcoxtest, decreasing = FALSE)
+golub.gnames[or[1:10],2]
+```
+
+### Question 11: Biological hypotheses. 
+Suppose that the probability to reject a bi- ological hypothesis by the results of a certain experiment is 0.05. Sup- pose that the experiment is repeated 1000 times.
+
+**(a):** How many rejections do you expect?
+
+With a 1000 trials and a probability of 0.05 I would expect 1000 * 0.05 = 50 rejections. 
+
+**(b):** What is the probability of less than 10 rejections? 
+
+```{r}
+pbinom(9,1000,0.05)
+```
+
+**(c):** What is the probability of more than 5 rejections?
+
+```{r}
+sum(dbinom(6:1000, 1000, 0.05))
+```
+
+**(d):** What is the probability that the number of rejections is between two and eight?
+```{r}
+sum(dbinom(2:8, 1000, 0.05))
+```
+
+
+### Question 12: Programming some tests. 
+
+**(a):** Program the two-sample t-test with equal variances and illustrate it with the expression values of CCND3 from the Golub et al. (1999) data.
+
+```{r}
+ccnd3 <- agrep("^CCND3", golub.gnames[,2])
+```
+
+**(b):** Test for the equality of the means by an appropriate t-test.
+```{r}
+cd <- golub[ccnd3,]
+sum(rank(cd)[1:27]) - 0.5*27*(27+1)
+```
+
+**(c):** Let the value X in the two-sample Wilcoxon rank-sum test equal the number of values xi > yj , where xi, yj are values from Group 1 and 2, respectively. Program this and illustrate it with the expression values of CCND3 from the Golub et al. (1999) data.
+
+```{r}
+aml <- golub[ccnd3, golub.factor == "AML"]
+all <- golub[ccnd3, golub.factor == "ALL"]
+x <- 0
+
+for (i in 1:27){
+  x <- x + sum(all[i]>aml)
+}
+x
+```
+

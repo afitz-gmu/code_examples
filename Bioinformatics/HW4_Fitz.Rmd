@@ -1,0 +1,290 @@
+---
+title: 'Homework Assignment 4 Fitz'
+author: "Alex Fitz"
+output:
+  word_document: default
+  html_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r, warning = FALSE, message=FALSE}
+if (!require(BiocManager))
+  {install.packages("BiocManager")}
+  library(BiocManager)
+
+if (!require(BiocManager::install("multtest")))
+  {BiocManager::install("multtest")}
+  library(multtest)
+
+
+```
+
+### Question 1: Binomial Distribution. 
+Let X be binomially distributed with n = 60 and p = 0.4. Compute the following.
+
+**(a):** P(X = 24), P(X <= 24), and P(X >= 30).
+
+```{r}
+dbinom(24, size = 60, prob=0.4)
+pbinom(24, 60, 0.4)
+1-pbinom(29, 60, 0.4)
+```
+
+**(b):** P(20<=X<=30),P(20<=X)
+```{r}
+pbinom(30, 60, 0.4) - pbinom(19, 60, 0.4)
+pbinom(20, 60, 0.4)
+```
+
+**(c):** P(20<=X or X>=40),and P(20<=X and X>=10).
+```{r}
+pbinom(20, 60, 0.4) + (1-pbinom(39, 60, 0.4))
+pbinom(20, 60, 0.4) * (1-pbinom(9, 60, 0.4)) 
+```
+
+**(d):** The mean and standard deviation of X.
+```{r}
+n = 60
+prob = 0.4
+x=0:60
+p = dbinom(x,n,prob)
+
+data=cbind(x,p,x*p,x^2*p)
+rownames(data)=0:60
+colnames(data)=c("x","p","xp","x^2p")
+
+mean = sum(x*p)
+mean
+
+sd=sqrt(60*0.4*0.6)
+sd
+```
+
+**(e):** The quantiles x0.025, x0.5, and x0.975.
+```{r}
+qbinom(0.025, 60, 0.4)
+qbinom(0.5, 60, 0.4)
+qbinom(0.975, 60, 0.4)
+```
+
+### Question 2: Standard normal distribution. Compute the following probabilities and quantiles. 
+
+**(a):** P(1.6 < Z < 2.3)
+
+```{r}
+pnorm(2.3, 0, 1) - pnorm(1.6, 0, 1)
+```
+
+**(b):** P (Z < 1.64).
+```{r}
+pnorm(1.64, 0, 1) 
+```
+**(c):** P (−1.64 < Z < −1.02). 
+```{r}
+pnorm(-1.02, 0, 1) - pnorm(-1.64, 0, 1)
+```
+**(d):** P(0 < Z < 1.96).
+```{r}
+pnorm(1.96, 0, 1) - pnorm(0, 0, 1)
+```
+**(e):** P (−1.96 < Z < 1.96).
+```{r}
+pnorm(1.96, 0, 1) - pnorm(-1.96, 0, 1)
+```
+**(f):** The quantiles z0.025, z0.05, z0.5, z0.95, and z0.975.
+```{r}
+qnorm(0.025, 0, 1)
+qnorm(0.05, 0, 1)
+qnorm(0.5, 0, 1)
+qnorm(0.95, 0, 1)
+qnorm(0.975, 0, 1)
+
+```
+
+### Question 3: Normal Distribution
+
+**(a):** P(X < 12). 
+```{r}
+pnorm(12, 10, 2)
+```
+
+**(b):** P(X > 8).
+```{r}
+pnorm(8, 10, 2, lower.tail = FALSE)
+```
+
+**(c):** P (9 < X < 10, 5).
+```{r}
+pnorm(10.5, 10, 2) - pnorm(9, 10, 2)
+```
+
+**(d):** The quantiles x0.025, x0.5, and x0.975.
+```{r}
+qnorm(0.025, 10, 2)
+qnorm(0.5, 10, 2)
+qnorm(0.975, 10, 2)
+```
+
+### Question 4: t-distribution
+
+**(a):** P(t6 <1). 
+```{r}
+pt(1,6)
+```
+
+**(b):** P(t6 >2).
+```{r}
+pt(2,6, lower.tail = FALSE)
+```
+
+**(c):** P(−1<t6 <1). 
+```{r}
+pt(1,6) - pt(-1, 6)
+```
+**(d):** P(−2<t6 <−2).
+```{r}
+pt(-2,6) - pt(-2, 6)
+```
+**(e):** The quantiles t0.025, t0.5, and t0.975.
+
+```{r}
+qt(0.025, 6)
+qt(0.5, 6)
+qt(0.975, 6)
+```
+
+### Question 5: F distribution
+**(a):** P(F8,5 <3).
+```{r}
+pf(3, 8, 5)
+```
+
+**(b):** P(F8,5 >4).
+```{r}
+pf(4, 8, 5, lower.tail = FALSE)
+```
+**(c):** P(1<F8,5 <6).
+```{r}
+pf(6, 8, 5) - pf(1, 8, 5)
+```
+**(d):** The quantiles f0.025, f0.5, and f0.975.
+```{r}
+qf(0.025, 8, 5)
+qf(0.5, 8, 5)
+qf(0.975, 8, 5)
+```
+
+### Question 6: Chi-squared distribution. 
+Compute the following for the chi-squared distribution with 10 degrees of freedom.
+
+**(a):** P(χ210 <3). 
+```{r}
+pchisq(3, 10)
+```
+
+**(b):** P(χ210 >4).
+```{r}
+pchisq(4, 10, lower.tail = FALSE)
+```
+**(c):** P(1 < χ210 <6).
+
+```{r}
+pchisq(6, 10) - pchisq(1, 10)
+```
+**(d):** The quantiles x0.025, x0.5, and x0.975.
+```{r}
+qchisq(0.025, 10)
+qchisq(0.5, 10)
+qchisq(0.975, 10)
+```
+
+### Question 7: Purines in microRNAs
+Suppose that for certain microRNA of size 20 the probability of a purine is binomially distributed with probability 0.7.
+
+(a) What is the probability of 14 purines?
+```{r}
+dbinom(14, 20, 0.7)
+```
+
+(b) What is the probability of less than or equal to 14 purines?
+```{r}
+pbinom(14, 20, 0.7)
+```
+
+(c) What is the probability of strictly more than 10 purines?
+```{r}
+1 - pbinom(10, 20, 0.7)
+```
+
+(d) What is the probability that there are between 10 and 15 purines, inclusive?
+```{r}
+pbinom(15, 20, 0.7) - pbinom(9, 20, 0.7)
+```
+
+(e) How many purines do you expect? In other words: What is the mean of the distribution?
+
+**Answer:** With a size of 20 and a probability of 0.7 I would expect 14. 20 x 0.7 = 14. 
+
+(f) What is the standard deviation of the distribution?
+```{r}
+sqrt(20*0.7*0.3)
+```
+
+### Question 8: Zyxin gene expression
+The distribution of the expression values of the ALL patients on the Zyxin gene are distributed according to N (1.6, 0.42).
+(a) Compute the probability that the expression values are smaller than 1.2.
+```{r}
+pnorm(1.2, 1.6, 0.4)
+```
+
+(b) What is the probability that the expression values are between 1.2 and 2.0?
+```{r}
+pnorm(2.0, 1.6, 0.4) - pnorm(1.2, 1.6, 0.4)
+```
+
+(c) What is the probability that the expression values are between 0.8 and 2.4?
+```{r}
+pnorm(2.4, 1.6, 0.4) - pnorm(0.8, 1.6, 0.4)
+```
+
+(d) Compute the exact values for the quantiles x0.025 and x0.975.
+```{r}
+qnorm(0.025, 1.6, 0.4)
+qnorm(0.975, 1.6, 0.4)
+```
+
+(e) Use rnorm to draw a sample of size 1000 from the population and compare the sample mean and standard deviation with that of the population.
+```{r}
+t <- rnorm(1000, 1.6, 0.4)
+mean(t)
+sd(t)
+```
+
+### Question 9: Some computations on the Golub et al. (1999) data.
+(a) Take μ = 0 and compute the t-values for the ALL gene expression values. Find the three genes with largest absolute t-values.
+```{r}
+data(golub)
+golub.factor <- factor(golub.cl, levels = 0:1, labels = c("ALL", "AML"))
+tval <- apply(golub[,golub.factor=="ALL"],1,function(x) sqrt(27) * mean(x))
+o <- order(tval,decreasing=TRUE)
+tval[o[1:3]]
+golub.gnames[o[1:3],2]
+```
+
+(b) Compute per gene the ratio of the variances for the ALL over the AML patients. How many are between 0.5 and 1.5?
+```{r}
+all <- apply(golub[,golub.factor=="ALL"],1,sd)
+aml <- apply(golub[,golub.factor=="AML"],1,sd)
+ratio = all/aml
+sum(ratio > 0.5 & ratio < 1.5)
+
+
+```
+
+
+### Question 10: Extreme value investigation. 
+This difficult question aims to teach the essence of an extreme value distribution. An interesting extreme value distribution is given by Pevsner (2003, p.103). To repeat this example, take the maximum of a sample (with size 1000) from the standard normal distribution and repeat this a 1000 times - so that you have sampled 1000 maxima. Next, subtract from these maxima an and divide by bn, where:

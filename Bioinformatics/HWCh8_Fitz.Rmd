@@ -1,0 +1,59 @@
+---
+title: 'Homework Assignment Chapter 8 Fitz'
+author: "Alex Fitz"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document: default
+---
+
+```{r, warning = FALSE, message=FALSE}
+if (!require(BiocManager))
+  {install.packages("BiocManager")}
+  library(BiocManager)
+
+if (!require(BiocManager::install("multtest")))
+  {BiocManager::install("multtest")}
+  library(multtest)
+
+if (!require(ALL))
+  {install.packages("ALL")}
+  library(ALL)
+
+if (!require(lmtest))
+  {install.packages("lmtest")}
+  library(lmtest)
+```
+
+### Question 1: Classification trees with the ALL data.
+
+**(a):** Select the genes with different means over the patient groups with an ANOVA p-value smaller than 0.001.
+
+```{r}
+
+```
+
+**(b):** Using rpart(), find a manner to identify the best 2 genes to predict the B-cell state.
+
+```{r}
+
+```
+
+
+**(c):** Use rpart() again to construct the best overtall classification tree to predict the B-cell state.
+
+
+```{r}
+```
+
+**(d):** How do the trees and misclassification rates differ?
+
+```{r}
+```
+
+***
+

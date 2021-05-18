@@ -1,0 +1,194 @@
+---
+title: 'Homework Assignment 6 Fitz'
+author: "Alex Fitz"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document: default
+---
+
+```{r, warning = FALSE, message=FALSE}
+if (!require(BiocManager))
+  {install.packages("BiocManager")}
+  library(BiocManager)
+
+if (!require(BiocManager::install("multtest")))
+  {BiocManager::install("multtest")}
+  library(multtest)
+
+if (!require(ALL))
+  {install.packages("ALL")}
+  library(ALL)
+
+if (!require(lmtest))
+  {install.packages("lmtest")}
+  library(lmtest)
+```
+
+### Question 1: Analysis of gene expressions of B-cell ALL patients.
+
+**(a):** Construct a data.frame containing the expression values for the B-cell ALL patients in stage B, B1, B2, B3, and B4 from the ALL data.
+
+```{r}
+data(ALL,package="ALL")
+ALLB1234 <- ALL[,ALL$BT %in% c("B","B1","B2","B3","B4")]
+table(ALLB1234$BT)
+```
+
+**(b):** How many patients are in each group?
+
+5 in B, 19 in B1, 36 in B2, 23 in B3, 12 in B4.
+
+**(c):** Test the normality of the residuals from the linear model used for the analysis of variance for all gene expression values. Collect the p-values in a vector.
+```{r}
+shapiro.pValues <- apply(exprs(ALLB1234),1,function(x) shapiro.test(residuals(lm(x ~ ALLB1234$BT)))$p.value)
+```
+
+**(d):** Do the same for the homoscedasticity assumption.
+
+```{r}
+bptest.pValues <- apply(exprs(ALLB1234), 1, function(x) as.numeric(bptest(lm(x ~ ALLB1234$BT),studentize = FALSE)$p.value))
+```
+
+**(e):** How many gene expressions are normally distributed and how many are homoscedastic? How many are both normally distributed and homoscedastic?
+
+Homoscedastic
+```{r}
+sum(bptest.pValues>0.05)
+```
+
+Normal 
+```{r}
+sum(shapiro.pValues>0.05)
+```
+
+Homoscedastic & Normal
+```{r}
+sum(shapiro.pValues>0.05 & bptest.pValues>0.05)
+```
+
+
+
+***
+
+### Question 2: Further analysis of gene expressions of B-cell ALL patients.
+Continue with the previous data.frame containing the expression values for the B-cell ALL patients in stage B, B1, B2, B3, and B4 from the ALL data.
+
+**(a):** Collect the overall p-values from ANOVA in a vector.
+
+```{r}
+anova.pValue <- apply(exprs(ALLB1234), 1, function(x) anova(lm(x ~ ALLB1234$BT))$Pr[1])
+```
+
+**(b):** Use featureNames() to report the affymetrix IDs of the genes with smaller p-values than 0.000001.
+
+```{r}
+featureNames(ALLB1234)[anova.pValue<0.000001]
+```
+
+
+**(c):** Collect the overall p-values from the Kruskal-Wallis test in a vector.
+
+```{r}
+kwallis.pValue <- apply(exprs(ALLB1234), 1, function(x) kruskal.test(x ~ ALLB1234$BT)$p.value)
+```
+
+**(d):** Use featureNames() to report the affymetrix IDs of the genes with smaller p-values than 0.000001.
+
+```{r}
+featureNames(ALLB1234)[kwallis.pValue<0.000001]
+```
+
+**(e):** Briefly comment on the differences you observe. That is, how many genes have p-values smaller than 0.001 for both ANOVA and Kruskal-Wallis? How many have p-values smaller than 0.001 for only one test? Hint: Collect TRUE/FALSES in logical vectors and use the table() function.
+
+```{r}
+pa <- anova.pValue < 0.001
+pkw <- kwallis.pValue < 0.001
+table(pa, pkw)
+```
+
+There are 38 expressions that are significant on the KW test but not on the ANOVA test. There are 124 expression that are significant in the ANOVA test but not on the KW test.
+
+
+***
+
+### Question 3: Finding the ten best genes for identifying B-cell ALL patients.
+Continue with the previous data.frame containing the expression values for the B-cell ALL patients in stage B, B1, B2, B3, and B4 from the ALL data.
+
+**(a):** Print the p-values and the corresponding (affymetrix) gene iden- tifiers of the ten best candidate genes (biomarkers) for differential expression using ANOVA.
+
+```{r}
+sort(anova.pValue)[1:10]
+```
+
+**(b):** Do the same for the p-values from the Kruskal-Wallis test.
+
+```{r}
+sort(kwallis.pValue)[1:10]
+```
+
+
+**(c):** Use the function intersect() to find identifiers in both sets.
+
+```{r}
+nanova <- names(sort(anova.pValue)[1:10])
+nkw <- names(sort(kwallis.pValue)[1:10])
+intersect(nanova, nkw)
+```
+
+
+
+***
+
+### Question 4: A simulation study on gene expression values.
+
+**(a):**  Construct a data matrix with 10000 rows (genes) and 9 columns (patients) with data sampled from the normal distribution with mean zero and variance equal to one. Such a matrix simulates gene expressions without differences between groups (sometimes called negatives).
+
+```{r}
+mat <- matrix(rnorm(90000), nrow = 10000, ncol = 9)
+```
+
+**(b):** Construct a factor for three groups each with three values.
+
+```{r}
+fact <- gl(3,3)
+```
+
+**(c):** Assume that the data from (a) represents the gene expression levels for 10,000 genes for 3 groups of patients with 3 patients in each group. Use one-way ANOVA to test the equality of means for each gene across the 3 groups of patients. In the test for equality of means between groups 1 and 3, how many p-values are smaller than the significance level α = 0.05?
+
+```{r}
+test <- apply(mat, 1, function(x) anova(lm(x ~ fact))$Pr[1])
+```
+
+**(d):** If the p-value is smaller than the significance level, then the conclusion is that there is an experimental effect (a positive). How many false positives do you expect by chance and how many did you observe?
+
+```{r}
+sum(test < 0.05)
+```
+
+The test here gives us 535 false positives. Mathematically we would expect (10,000 * 0.05) = 500 false positives. This makes sense that the values are very close. 
+
+**(e):** Construct another matrix with 10000 rows and 9 columns with normally distributed data with variance equal to one and mean equal to zero for the 1st 3 columns, mean equal to one for the 2nd set of 3 columns, and mean equal to two for the 3rd set of 3 columns. Assume again that this matrix represents gene expression data for 10,000 genes for three groups of patients with three patients in each group. This data matrix simulates gene expressions with differences between groups (sometimes called positives). 
+
+Use both ANOVA and kruskal-Wallis to find the number of significant genes (true positives). Also report the number of false negatives.
+
+```{r}
+
+first <- matrix(rnorm(10000*3, 0, 1), ncol = 3)
+second <- matrix(rnorm(10000*3, 1, 1), ncol = 3)
+third <- matrix(rnorm(10000*3, 2, 1), ncol = 3)
+
+x <- cbind(first, second, third)
+fact <- gl(3,3)
+
+test <- apply(x, 1, function(x) anova(lm(x ~ fact))$Pr[1])
+sum(test < 0.05)
+
+kwtest <- apply(x, 1, function(x) kruskal.test(x ~ fact)$p.value)
+sum(kwtest < 0.05)
+```
+

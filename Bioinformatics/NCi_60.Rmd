@@ -1,0 +1,234 @@
+---
+title: 'NCI 60 Project (BINF 702)'
+author: "Alex Fitz & Sarah Parron"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+  word_document: default
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r, warning = FALSE, message=FALSE}
+
+#BiocManager::install("omicade4")
+
+if (!require(BiocManager))
+  {install.packages("BiocManager")}
+  library(BiocManager)
+
+if (!require(BiocManager::install("omicade4")))
+  {BiocManager::install("omicade4")}
+  library(omicade4)
+
+if (!require(stringr))
+  {install.packages("stringr")}
+  library(stringr)
+
+if (!require(gplots))
+  {install.packages("gplots")}
+  library(gplots)
+
+library(factoextra)
+
+if (!require(Rtsne))
+  {install.packages("Rtsne")}
+  library(Rtsne)
+
+if (!require(formattable))
+  {install.packages("formattable")}
+  library(formattable)
+
+if (!require(ggpubr))
+  {install.packages("ggpubr")}
+  library(ggpubr)
+
+if (!require(devtools))
+  {install.packages("devtools")}
+  library(devtools)
+
+#Load latest version of heatmap.3 function
+source_url("https://raw.githubusercontent.com/obigriffith/biostar-tutorials/master/Heatmaps/heatmap.3.R")
+
+```
+
+
+```{r}
+data(NCI60_4arrays)
+sapply(NCI60_4arrays, dim)
+```
+
+<H>Working with agilent data</H1>
+
+```{r}
+agilent <- NCI60_4arrays[["agilent"]]
+cancerType <- str_split(names(agilent), "\\." , simplify = TRUE)
+cancerType <-cbind(names(agilent), cancerType)
+cancerType
+```
+
+<H1>filter out prostate, lung, breast and ovarian</H1>
+
+```{r}
+df <- agilent[cancerType[cancerType[,2] %in% c("BR" , "OV" , "LC" ,"PR"),1]]
+CT<-cancerType[cancerType[,2] %in% c("BR" , "OV" , "LC" ,"PR"),2]
+
+```
+
+<H1>finding differentially expressed genes</H1>
+
+
+```{r}
+x<-as.data.frame(t(df))
+aov.res <- aov(x[,1] ~CT ,x)
+t.res <- TukeyHSD(aov.res)
+res<-t.res$CT[,4]
+for(i in 2:dim(x)[2])
+{
+aov.res <- aov(x[,i] ~CT ,x)
+t.res <- TukeyHSD(aov.res)
+res<-rbind(res, t.res$CT[,4])
+}
+row.names(res)<-row.names(df)
+res<-as.data.frame(res)
+color.gradient <- function(x, colors=c("red","grey"), colsteps=100) {
+  return( colorRampPalette(colors) (colsteps) [ findInterval(x, seq(min(x),max(x), length.out=colsteps)) ] )
+}
+res.col<- sapply(res, function(x)  ifelse(x<0.05, x ,1))
+res.col<- as.data.frame(res.col)
+res.col<-  sapply(res.col, color.gradient)
+row.names(res.col) <-row.names(res)
+
+diff.count <- apply(res, 1 , function(x) sum(x<=0.05))
+diff.count <- as.data.frame(diff.count)
+res <-cbind(res,diff.count)
+
+sign_formatter <- formatter("span", 
+  style = x ~ style(color = ifelse(x < 0.05, "red", "black"
+    )))
+
+
+
+formattable(res[res$diff.count >0,], list("LC-BR"=sign_formatter , "OV-BR" = sign_formatter ,  "PR-BR" = sign_formatter  , "OV-LC" = sign_formatter, "PR-LC" = sign_formatter, "PR-OV" = sign_formatter) )
+```
+
+    Significant pvalue are shown by red. diff.count gives if the gene is count of differentally expressed between pairs. for example LOC441843 is differnetially expressed OV vs BR and in OV vs LC cancer type 
+    
+<H1>Heatmap</H1>
+
+```{r , fig.height=16, fig.width=12}
+colrs <- data.frame("Cancer"=as.numeric(as.factor(CT)) )
+colr<-rainbow(4)
+colrs[,1] <- colr[colrs[,1]]
+CT.names<-unique(CT)
+#heatmap.3(as.matrix(df) , trace ="none", ColSideColors=as.matrix(colrs) , RowSideColors= as.matrix(t(res.col)) )
+
+
+heatmap.3(as.matrix(df) , trace ="none", RowSideColors= as.matrix(t(res.col)) , RowSideColorsSize=7 , ColSideColors = as.matrix(colrs)  )
+legend("bottomleft", legend=c("Pvalue\nsignificant", CT.names) , fill=c("red" , colr[as.numeric(as.factor(CT.names))] ) ,border=FALSE, bty="n" , horiz = FALSE )
+
+```
+
+<H1>Kmeans Clustering</H1>
+
+```{r}
+set.seed(123)
+
+fviz_nbclust(df, kmeans, method = "wss")
+fviz_nbclust(df, kmeans, method = "silhouette")
+clust2<- kmeans(df, 2, nstart = 25)
+fviz_cluster(clust2 , data=df)
+```
+
+    WSS and silhoute methods suggest the optimal number of cluster in data set as 2.  
+
+<H1>k means Clustering after dimension reduction</H1>
+
+
+```{r}
+#dim reduction by TSNE
+tsne <- Rtsne(df , dims = 3, perplexity=10, verbose=FALSE)
+red.df<-tsne$Y
+row.names(red.df)<-row.names(df)
+fviz_nbclust(red.df, kmeans, method = "wss")
+fviz_nbclust(red.df, kmeans, method = "silhouette")
+clust7<- kmeans(red.df, 7, nstart = 25)
+plot(red.df , col=clust7$cluster, xlab="Dim1",ylab="Dim2", main="Clsutering after dim reduction by tSNE")
+fviz_cluster(clust7 , data=red.df)
+
+
+```
+
+    After dimensional reduction the optimal number of clusters were 7.
+    
+<H1>heatmap of clustered genes</H1>
+
+```{r , fig.height=8, fig.width=6}
+for(i in 1:7)
+{
+gn <- clust7$cluster[clust7$cluster==i]
+df2 <-df[names(gn),]
+res.col2<-res.col[names(gn),]
+#heatmap.2(as.matrix(df2) , trace ="none", ColSideColors=as.character(colrs)  , main= paste("Cluster:" ,i) )
+
+heatmap.3(as.matrix(df2) , trace ="none", RowSideColors= as.matrix(t(res.col2)) , RowSideColorsSize=7 , ColSideColors = as.matrix(colrs)  )
+legend("bottomleft", legend=c("Pvalue\nsignificant", CT.names) , fill=c("red" , colr[as.numeric(as.factor(CT.names))] ) ,border=FALSE, bty="n" , horiz = FALSE )
+
+}
+```
+    
+    heatmap of 7 cluster genes , where we can see that genes those are cluster together are showing similar expression , thought out various cancer cell lines 
+
+<H1>Diff expressed genes in  clustering</H1>
+
+
+```{r , fig.height=16, fig.width=12}
+clust.res<-data.frame( res, "Cluster"=clust7$cluster,df)
+
+clust.res <- clust.res[order(clust.res$Cluster),]
+formattable(clust.res[clust.res$diff.count >0,], list("LC.BR"=sign_formatter , "OV.BR" = sign_formatter ,  "PR.BR" = sign_formatter  , "OV.LC" = sign_formatter, "PR.LC" = sign_formatter, "PR.OV" = sign_formatter) )
+
+```
+
+    Significant pvalue are shown by red. diff.count gives if the gene is count of differentally expressed between pairs. for example LOC441843 is differnetially expressed OV vs BR and in OV vs LC cancer type . Cluster col indicate in which cluster the gene is grouped. Expression value of filtered cancer types are also shown in the table.
+    
+    
+```{r}
+clust.res <- clust.res[order(clust.res$Cluster),]
+formattable(clust.res[clust.res$diff.count >3,], list("LC.BR"=sign_formatter , "OV.BR" = sign_formatter ,  "PR.BR" = sign_formatter  , "OV.LC" = sign_formatter, "PR.LC" = sign_formatter, "PR.OV" = sign_formatter) )
+```
+
+    Now we can look at genes that were significantly expressed between multiple pairs of cancer types. 
+
+<H1>validation plots for Diff genes in  clustering</H1>
+    
+    
+```{r}
+cluster.exp<-data.frame(count=res$diff.count ,"Cluster"=clust7$cluster,df)
+
+cluster.exp <- cluster.exp[order(cluster.exp$Cluster),]
+
+mypairs <-list( c("BR","LC") , c("BR","OV") , c("BR","PR"), c("LC", "OV") , c("LC","PR") ,c("OV","PR") )
+for(i in 1:300)
+{
+x<-data.frame( t(cluster.exp[i,-c(1:2)]) , CT)
+if(cluster.exp[i,1] > 0)
+{
+  gn<-colnames(x)[1]
+colnames(x)<-c("Gene","CT")
+p<- ggboxplot(x, y="Gene" , x="CT", fill="CT") + stat_compare_means(comparisons = mypairs , method="t.test") +
+  ggtitle(paste(gn , "cluster:",cluster.exp[i,2] ))
+plot(p)
+}
+
+}
+
+```
+    
+
+    
+
+
+
